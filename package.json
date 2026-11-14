@@ -2,7 +2,7 @@
   "name": "sabisafe",
   "private": true,
   "version": "1.0.0",
-  "description": "SabiSafe — a private, beginner-friendly crypto companion on Aurora testnet",
+  "description": "SabiSafe \u2014 a private, beginner-friendly crypto companion on Aurora testnet",
   "type": "module",
   "workspaces": [
     "client",
@@ -13,8 +13,8 @@
   },
   "scripts": {
     "dev": "concurrently -k -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
-    "build": "npm install --include=dev && npm run db:generate && npm run build",
-    "start": "npm run db:deploy && npm run db:seed && npm start",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
     "db:generate": "npm run db:generate -w server",
     "db:migrate": "npm run db:migrate -w server",
     "db:deploy": "npm run db:deploy -w server",

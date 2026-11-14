@@ -10,6 +10,8 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@vitejs/plugin-react": "^6.3.0",
     "axios": "^1.13.1",
     "framer-motion": "^14.13.0",
     "lucide-react": "^0.552.0",
@@ -17,13 +19,11 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.5",
-    "viem": "^2.57.19"
+    "tailwindcss": "^4.3.5",
+    "viem": "^2.57.19",
+    "vite": "^8.3.8"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
-    "@tailwindcss/vite": "^4.3.5",
-    "@vitejs/plugin-react": "^6.3.0",
-    "tailwindcss": "^4.3.5",
-    "vite": "^8.3.8"
+    "@playwright/test": "^1.56.1"
   }
 }
