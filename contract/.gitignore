@@ -1,0 +1,8 @@
+# Foundry build output and broadcast artifacts
+out/
+cache/
+broadcast/
+
+# Never commit local env files
+.env
+.env.*

@@ -1,0 +1,256 @@
+// SabiSafe database schema
+// PostgreSQL + Prisma 7
+// Never store private keys, recovery phrases, OTPs, or wallet PINs in this database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Language {
+  ENGLISH
+  PIDGIN
+}
+
+enum ExperienceLevel {
+  COMPLETE_BEGINNER
+  LITTLE_EXPERIENCE
+  EXPERIENCED
+}
+
+enum AssistanceMode {
+  TEXT
+  VOICE
+}
+
+enum Network {
+  AURORA_TESTNET
+  AURORA_MAINNET
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum AiMode {
+  NEAR_AI
+  GUIDE
+}
+
+enum ConversationMode {
+  EPHEMERAL
+  SAVED_REDACTED
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum TransactionDirection {
+  INCOMING
+  OUTGOING
+}
+
+enum ReceivingStatus {
+  REQUESTED
+  SHARED
+  CANCELLED
+}
+
+enum ContactRelationship {
+  SON
+  DAUGHTER
+  GRANDDAUGHTER
+  GRANDSON
+  SPOUSE
+  SIBLING
+  OTHER
+}
+
+model User {
+  id                String          @id @default(uuid()) @db.Uuid
+  firstName         String          @db.VarChar(80)
+  email             String          @unique @db.VarChar(160)
+  passwordHash      String
+  preferredLanguage Language        @default(ENGLISH)
+  experienceLevel   ExperienceLevel @default(COMPLETE_BEGINNER)
+  assistanceMode    AssistanceMode  @default(TEXT)
+  saveAiHistory     Boolean         @default(false)
+  onboardedAt       DateTime?
+  lastLoginAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  progress          UserLearningProgress[]
+  conversations     Conversation[]
+  walletConnections WalletConnection[]
+  contacts          TrustedContact[]
+  transactions      Transaction[]
+  receivingRequests ReceivingRequest[]
+  practiceProgress  PracticeProgress[]
+
+  @@index([createdAt])
+}
+
+model LearningLesson {
+  id               String   @id @default(uuid()) @db.Uuid
+  slug             String   @unique @db.VarChar(120)
+  title            String   @db.VarChar(200)
+  description      String
+  content          Json
+  quiz             Json
+  visual           String   @default("wallet")
+  difficulty       String   @default("Beginner")
+  estimatedMinutes Int      @default(5)
+  order            Int      @unique
+  createdAt        DateTime @default(now())
+
+  progress UserLearningProgress[]
+}
+
+model UserLearningProgress {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  lessonId    String    @db.Uuid
+  completed   Boolean   @default(false)
+  quizScore   Int?
+  answers     Json?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson LearningLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId, completed])
+}
+
+model Conversation {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  title     String           @db.VarChar(200)
+  mode      ConversationMode @default(SAVED_REDACTED)
+  provider  String           @default("near_ai")
+  model     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId, updatedAt])
+}
+
+model Message {
+  id                  String      @id @default(uuid()) @db.Uuid
+  conversationId      String      @db.Uuid
+  role                MessageRole
+  content             String
+  aiMode              AiMode?
+  model               String?
+  signatureKind       String?
+  attestedAt          DateTime?
+  e2ee                Boolean?
+  redacted            Boolean     @default(false)
+  verificationSummary Json?
+  createdAt           DateTime    @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model WalletConnection {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  accountId   String   @db.VarChar(64)
+  network     Network  @default(AURORA_TESTNET)
+  connectedAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, accountId, network])
+  @@index([userId, lastSeenAt])
+}
+
+model TrustedContact {
+  id               String              @id @default(uuid()) @db.Uuid
+  userId           String              @db.Uuid
+  name             String              @db.VarChar(80)
+  relationship     ContactRelationship @default(OTHER)
+  walletAddress    String              @db.VarChar(64)
+  network          Network             @default(AURORA_TESTNET)
+  onchainStatus    String              @default("NOT_REGISTERED")
+  onchainCheckedAt DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, walletAddress])
+  @@index([userId, createdAt])
+}
+
+model Transaction {
+  id               String               @id @default(uuid()) @db.Uuid
+  userId           String               @db.Uuid
+  transactionHash  String               @db.VarChar(80)
+  senderAddress    String               @db.VarChar(64)
+  recipientAddress String               @db.VarChar(64)
+  amountWei        String
+  asset            String               @default("ETH") @db.VarChar(16)
+  network          Network              @default(AURORA_TESTNET)
+  status           TransactionStatus    @default(PENDING)
+  direction        TransactionDirection
+  blockHeight      String?
+  failureReason    String?
+  verifiedAt       DateTime?
+  explorerUrl      String?
+  source           String               @default("wallet")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, transactionHash])
+  @@index([userId, createdAt])
+  @@index([userId, status])
+}
+
+model ReceivingRequest {
+  id               String          @id @default(uuid()) @db.Uuid
+  userId           String          @db.Uuid
+  payerName        String          @db.VarChar(80)
+  recipientAddress String          @db.VarChar(64)
+  asset            String          @default("ETH") @db.VarChar(16)
+  amountWei        String?
+  network          Network         @default(AURORA_TESTNET)
+  note             String?         @db.VarChar(280)
+  status           ReceivingStatus @default(REQUESTED)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model PracticeProgress {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  exerciseKey String   @db.VarChar(80)
+  completedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, exerciseKey])
+}
