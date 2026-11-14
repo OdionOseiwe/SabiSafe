@@ -301,8 +301,13 @@ Then set `AURORA_REGISTRY_ADDRESS` to the deployed address, restart the API, and
 3. Build command:
 
    ```bash
-   npm install && npm run db:generate && npm run build
+   npm install --include=dev && npm run db:generate && npm run build
    ```
+
+   `--include=dev` is required. Render applies `NODE_ENV=production` to the build step
+   too, and npm skips devDependencies in production. That removes `vite` (the client
+   bundler) and the `prisma` CLI, so the build fails with exit code 127. The flag keeps
+   them installed for the build.
 
 4. Start command:
 
