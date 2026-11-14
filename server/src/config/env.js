@@ -38,7 +38,7 @@ if (!process.env.DATABASE_URL) {
 export const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   isProd,
-  port: int(process.env.PORT, 3001),
+  port: int(process.env.PORT, isProd ? 10000 : 3001),
   clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
   databaseUrl: process.env.DATABASE_URL || "",
   jwtSecret: process.env.JWT_SECRET,
