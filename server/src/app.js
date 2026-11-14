@@ -2,7 +2,6 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import express from "express";
-import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
@@ -47,16 +46,42 @@ const allowedOrigins = new Set(
   ].filter(Boolean),
 );
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-      return callback(new AppError(403, "CORS_BLOCKED", "This origin is not allowed to call the API."));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-  }),
-);
+// CORS for a single-service host (the SPA and the API share an origin).
+// - Requests with no Origin header (curl, server-to-server, same-origin navigation) pass.
+// - Requests whose Origin host equals this request's Host pass. This covers the
+//   SPA calling its own API, which browsers send with an Origin header.
+// - Origins in CLIENT_URL / CORS_ORIGINS pass (split deployments).
+// - Everything else gets 403.
+function corsMiddleware(req, res, next) {
+  const origin = req.headers.origin;
+  let allow = null;
+
+  if (origin) {
+    try {
+      if (new URL(origin).host === req.headers.host) allow = origin;
+    } catch {
+      allow = null;
+    }
+    if (!allow && allowedOrigins.has(origin)) allow = origin;
+    if (!allow) {
+      return next(new AppError(403, "CORS_BLOCKED", "This origin is not allowed to call the API."));
+    }
+  }
+
+  if (allow) res.setHeader("Access-Control-Allow-Origin", allow);
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+    res.setHeader("Access-Control-Max-Age", "600");
+    return res.sendStatus(204);
+  }
+  return next();
+}
+
+app.use(corsMiddleware);
 
 app.use(cookieParser());
 app.use(express.json({ limit: "256kb" }));
@@ -84,7 +109,7 @@ const clientDist = path.resolve(serverRoot, "../client/dist");
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist, { maxAge: "1h", index: false }));
   app.use((req, res, next) => {
-    if (req.method !== "GET") return next();
+    if (!["GET", "HEAD"].includes(req.method)) return next();
     res.sendFile(path.join(clientDist, "index.html"));
   });
 }
